@@ -1,0 +1,15 @@
+upstream ecommerce {
+  {% for host in groups['app_nodes'] %}
+    server {{ hostvars[host].inventory_hostname }}:8080;
+  {% endfor %}
+}
+
+server {
+  listen 80;
+  root /var/www;
+
+  location / {
+    proxy_pass http://ecommerce;
+    proxy_set_header Host $host;
+  }
+}

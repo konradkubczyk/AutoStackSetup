@@ -1,0 +1,148 @@
+---
+- name: "Prepare Docker"
+  hosts:
+    - app_nodes
+    - lb_nodes
+  become: yes
+  tasks:
+    - name: "Install Docker"
+      dnf:
+        name: docker
+        state: latest
+
+    - name: "Start Docker service"
+      systemd_service:
+        name: docker
+        state: started
+        enabled: yes
+
+- name: "Install ecommerce application"
+  hosts: app_nodes
+  become: yes
+  tasks:
+    - name: "Ensure {{ app_dir }} directory exists"
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+
+    - name: "Copy Dockerfile template"
+      template:
+        src: "{{ app_dockerfile_template }}"
+        dest: "{{ app_dir }}/Dockerfile"
+
+    - name: "Build Docker image"
+      command: "docker build -t {{ app_docker_image_name }} {{ app_dir }}"
+
+    - name: "Run Docker container"
+      docker_container:
+        name: "{{ app_name }}"
+        image: "{{ app_docker_image_name }}"
+        ports:
+          - "8080:8080"
+        state: started
+
+- name: "Setup database"
+  hosts: db_nodes
+  become: yes
+  tasks:
+    - name: "Install required software"
+      dnf:
+        name: "{{ db_required_software }}"
+        state: latest
+
+    - name: "Install required Python modules"
+      pip:
+        name: "{{ db_required_python_modules }}"
+
+    - name: "Start MariaDB service"
+      systemd_service:
+        name: mariadb
+        state: restarted
+        enabled: yes
+
+    - name: "Create {{ db_name }} database"
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_unix_socket: /var/lib/mysql/mysql.sock
+
+    - name: "Create {{ db_user }} user with remote access"
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        host: "%"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+
+- name: "Install and configure proxy, InfluxDB, and Grafana"
+  hosts: lb_nodes
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: "Install proxy components (Nginx)"
+      block:
+        - name: "Install Nginx"
+          dnf:
+            name: nginx
+            state: latest
+
+        - name: "Copy Nginx config"
+          template:
+            src: templates/nginx/app.conf.j2
+            dest: /etc/nginx/conf.d/web.conf
+
+        - name: "Restart Nginx"
+          systemd_service:
+            name: nginx
+            state: restarted
+            enabled: yes
+      tags:
+        - proxy
+
+    - name: "Install and configure InfluxDB and Grafana in Docker"
+      block:
+        - name: "Run InfluxDB Docker container"
+          docker_container:
+            name: influxdb
+            image: influxdb:1.8-alpine
+            ports:
+              - "8086:8086"
+            state: started
+
+        - name: "Run Grafana Docker container with volume"
+          docker_container:
+            name: grafana
+            image: grafana/grafana:latest
+            ports:
+              - "8080:3000"
+            env:
+              GF_SECURITY_ADMIN_PASSWORD: "{{ grafana_admin_password }}"
+            volumes:
+              - grafana-storage:/var/lib/grafana
+            state: started
+
+        - name: "Restart Grafana"
+          command: "docker restart grafana"
+          ignore_errors: yes
+
+- name: "Install and configure Telegraf on lb_nodes"
+  hosts: lb_nodes
+  become: yes
+  tasks:
+    - name: "Install Telegraf"
+      dnf:
+        name: "{{ telegraf_rpm_url }}"
+        state: present
+        disable_gpg_check: yes
+
+    - name: "Copy Telegraf configuration file"
+      template:
+        src: "{{ telegraf_conf_src }}"
+        dest: "/etc/telegraf/telegraf.conf"
+
+    - name: "Start Telegraf service"
+      systemd_service:
+        name: telegraf
+        state: started
+        enabled: yes

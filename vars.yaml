@@ -1,0 +1,20 @@
+app_package_url: your_app_package_url
+app_dir: /opt/ecommerce
+app_name: ecommerce
+app_docker_image_name: ecommerce-app
+app_dockerfile_template: templates/docker/Dockerfile.j2
+
+db_user: ecommerce
+db_name: ecommerce
+db_password: your_database_password
+db_required_software:
+  - mariadb105-server
+  - python3-pip
+db_required_python_modules:
+  - PyMySQL
+  
+grafana_admin_password: your_grafana_admin_password
+
+telegraf_db_name: metrics
+telegraf_conf_src: templates/telegraf/telegraf.conf.j2
+telegraf_rpm_url: https://dl.influxdata.com/telegraf/releases/telegraf-1.29.1-1.x86_64.rpm

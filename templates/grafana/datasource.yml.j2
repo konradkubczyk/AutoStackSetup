@@ -1,0 +1,10 @@
+apiVersion: 1
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://{{ groups['lb_nodes'][0] }}:8086
+    database: metrics
+    user: your_influxdb_user
+    password: your_influxdb_password
+    isDefault: true

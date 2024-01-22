@@ -1,0 +1,22 @@
+[server]
+http_port = 3000
+domain = localhost
+root_url = %(protocol)s://%(domain)s:%(http_port)s/
+
+[database]
+type = sqlite3
+path = /var/lib/grafana/grafana.db
+
+[analytics]
+reporting_enabled = false
+
+[users]
+allow_sign_up = false
+
+[datasources]
+[[datasource]]
+type = "influxdb"
+name = "InfluxDB"
+access = "proxy"
+url = "http://{{ groups['lb_nodes'][0] }}:8086"
+database = "{{ telegraf_db_name }}"

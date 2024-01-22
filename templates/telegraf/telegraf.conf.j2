@@ -1,0 +1,13 @@
+[agent]
+interval = "10s"
+
+{% for host in groups['lb_nodes'] %}
+[[outputs.influxdb]]
+  urls = ["http://{{ host }}:8086"]
+  database = "{{ telegraf_db_name }}"
+{% endfor %}
+
+[[inputs.system]]
+[[inputs.mem]]
+[[inputs.disk]]
+  mount_points = ["/"]

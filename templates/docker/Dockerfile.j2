@@ -1,0 +1,15 @@
+FROM alpine:latest
+
+RUN apk add openjdk17
+
+RUN mkdir -p {{ app_dir }}
+
+RUN wget {{ app_package_url }} -O {{ app_dir }}/app.jar
+
+RUN adduser {{ app_name }} --disabled-password
+
+USER {{ app_name }}
+
+EXPOSE 8080
+
+CMD ["/usr/bin/java", "-Dserver.port=8080", "-jar", "{{ app_dir }}/app.jar"]
